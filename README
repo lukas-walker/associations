@@ -1,0 +1,7 @@
+# Association Game
+Single-room word-matching game. In-memory, no DB.
+
+## Run locally
+npm i
+node server.mjs
+# open http://localhost:8080 and http://localhost:8080/host

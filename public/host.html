@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Host · Association Game</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-neutral-950 text-neutral-100" style="background-image: url('http://intersections.ch/wp-content/uploads/2024/08/Intersections-bg-scaled.jpg');">
+  <div class="max-w-xl mx-auto p-6">
+    <h1 class="text-3xl font-bold mb-6">Host Controls</h1>
+
+    <label class="block mb-2 text-neutral-300">Prompt</label>
+    <input id="prompt" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700" placeholder="e.g., 'apple'"/>
+    <div class="mt-4 flex gap-2">
+      <button id="start" class="rounded-xl px-5 py-3 bg-blue-500 text-black font-semibold hover:bg-blue-400">Start Round</button>
+      <button id="close" class="rounded-xl px-5 py-3 bg-rose-500 text-black font-semibold hover:bg-rose-400">Close & Reveal</button>
+      <button id="next"  class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Next Round</button>
+    </div>
+
+    <div class="mt-6 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+      <div class="text-neutral-300">Submitted so far</div>
+      <div id="count" class="text-4xl font-bold mt-1">0</div>
+    </div>
+  </div>
+
+  <script>
+    const headers = { "Content-Type": "application/json" };
+
+    $("start").onclick = async () => {
+      const prompt = $("prompt").value.trim();
+      if (!prompt) { alert("Enter a prompt"); return; }
+      await fetch("/api/host/start", { method: "POST", headers, body: JSON.stringify({ prompt }) });
+    };
+    $("close").onclick = async () => {
+      await fetch("/api/host/close", { method: "POST", headers });
+    };
+    $("next").onclick = async () => {
+      const prompt = $("prompt").value.trim();
+      await fetch("/api/host/next", { method: "POST", headers, body: JSON.stringify({ prompt }) });
+    };
+
+    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
+    ws.addEventListener("open", () => ws.send(JSON.stringify({ type: "hello" })));
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(ev.data);
+      if (msg.type === "submission_count") $("count").textContent = msg.count;
+      if (msg.type === "round_started") $("count").textContent = msg.round.submissionCount || 0;
+      if (msg.type === "round_revealed") $("count").textContent = "0";
+    });
+
+    function $(id) { return document.getElementById(id); }
+  </script>
+</body>
+</html>
