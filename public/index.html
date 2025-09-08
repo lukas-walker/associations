@@ -4,14 +4,19 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Association Game</title>
-  <script>
-    // Tailwind (CDN)
-  </script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="min-h-screen bg-neutral-950 text-neutral-100" style="background-image: url('http://intersections.ch/wp-content/uploads/2024/08/Intersections-bg-scaled.jpg');">
+<body class="min-h-screen bg-neutral-950 text-neutral-100">
   <div class="max-w-xl mx-auto p-6">
     <h1 class="text-3xl font-bold mb-6">Association Game</h1>
+
+    <!-- Name editor -->
+    <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow mb-6">
+      <label for="name" class="block text-sm text-neutral-300 mb-2">Your name</label>
+      <input id="name" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
+             placeholder="Your name..." maxlength="24" />
+      <p id="nameHint" class="text-xs text-neutral-400 mt-1">Change it anytime. Max 24 characters.</p>
+    </div>
 
     <div id="promptCard" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow">
       <h2 class="text-lg text-neutral-300 mb-2">Prompt</h2>
@@ -38,25 +43,29 @@
   </div>
 
   <script>
-    // --- WS setup ---
     const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    const playerId = localStorage.getItem("playerId");
-    ws.addEventListener("open", () => {
-      ws.send(JSON.stringify({ type: "hello", playerId }));
-    });
-
-    // helpers
     const $ = (id) => document.getElementById(id);
+    const playerId = localStorage.getItem("playerId");
+
+    // simple debounce
+    function debounce(fn, ms) {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
     function setPrompt(text) { $("prompt").textContent = text || "— waiting for host —"; }
+
     function showLeaders(list) {
+      const me = localStorage.getItem("playerId");
       const box = $("leaders"); box.innerHTML = "";
       list.forEach((p, i) => {
         const div = document.createElement("div");
-        div.className = "flex justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2";
+        const mine = p.id === me ? "border-emerald-600" : "border-neutral-800";
+        div.className = `flex justify-between rounded-xl border ${mine} bg-neutral-900 px-4 py-2`;
         div.innerHTML = `<span class="text-neutral-300">${i+1}. ${p.name}</span><span class="font-semibold">${p.score}</span>`;
         box.appendChild(div);
       });
     }
+
     function showResults(results) {
       const box = $("words"); box.innerHTML = "";
       results.sort((a,b)=>b.freq - a.freq).forEach(r => {
@@ -69,7 +78,10 @@
       $("results").classList.remove("hidden");
     }
 
-    // form
+    ws.addEventListener("open", () => {
+      ws.send(JSON.stringify({ type: "hello", playerId }));
+    });
+
     $("form").addEventListener("submit", (e) => {
       e.preventDefault();
       const w = $("word").value;
@@ -77,14 +89,32 @@
       ws.send(JSON.stringify({ type: "submit", word: w }));
     });
 
-    // messages
+    // rename handling: send on input (debounced)
+    const sendRename = debounce(() => {
+      const name = $("name").value;
+      ws.send(JSON.stringify({ type: "rename", name }));
+    }, 300);
+    $("name").addEventListener("input", sendRename);
+
     ws.addEventListener("message", (ev) => {
       const msg = JSON.parse(ev.data);
+
       if (msg.type === "hello_ack") {
         if (!localStorage.getItem("playerId")) localStorage.setItem("playerId", msg.playerId);
+        $("name").value = msg.name || "";
         setPrompt(msg.round?.prompt);
         showLeaders(msg.leaderboard || []);
       }
+
+      if (msg.type === "rename_ack") {
+        // Server may trim/clean name; reflect the canonical one
+        $("name").value = msg.name;
+      }
+
+      if (msg.type === "leaderboard") {
+        showLeaders(msg.leaderboard || []);
+      }
+
       if (msg.type === "round_started") {
         $("results").classList.add("hidden");
         $("submitted").classList.add("hidden");
@@ -92,10 +122,12 @@
         $("word").disabled = false;
         setPrompt(msg.round.prompt);
       }
+
       if (msg.type === "submit_ack") {
         $("word").disabled = true;
         $("submitted").classList.remove("hidden");
       }
+
       if (msg.type === "round_revealed") {
         showResults(msg.results);
         showLeaders(msg.leaderboard);

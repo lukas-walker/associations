@@ -72,7 +72,16 @@ function normalize(word) {
   return word.trim().toLowerCase().normalize("NFKD").replace(/\s+/g, " ");
 }
 
-// ---------------- Static file server ----------------
+function sanitizeName(name) {
+  let s = (name ?? "").toString();
+  s = s.replace(/[\u0000-\u001F\u007F]/g, "");
+  s = s.trim().replace(/\s+/g, " ");
+  if (!s) s = "Player-" + crypto.randomBytes(2).toString("hex");
+  if (s.length > 24) s = s.slice(0, 24);
+  return s;
+}
+
+// ---------------- HTTP server (static + host API) ----------------
 const server = http.createServer((req, res) => {
   if (req.method === "POST" && req.url === "/api/host/start") {
     return handleJson(req, res, (body) => {
@@ -94,7 +103,7 @@ const server = http.createServer((req, res) => {
     });
   }
 
-  // static
+  // static files
   const p = req.url === "/host" ? "/host.html"
         : req.url === "/" ? "/index.html"
         : req.url;
@@ -140,13 +149,27 @@ function broadcast(msg) {
   }
 }
 
-wss.on("connection", (ws, req) => {
+wss.on("connection", (ws) => {
   let playerId = null;
+
   ws.on("message", (buf) => {
     let msg;
     try { msg = JSON.parse(buf.toString()); } catch { return; }
 
+    // initial hello
     if (msg.type === "hello") {
+      // If the client identifies as host, DO NOT create a player
+      if (msg.role === "host") {
+        ws.send(JSON.stringify({
+          type: "host_hello_ack",
+          round: publicRound(),
+          leaderboard: getLeaderboard(),
+          submissionCount: state.round?.submissions.size || 0
+        }));
+        return;
+      }
+
+      // Otherwise it's a player
       playerId = msg.playerId || crypto.randomUUID();
       if (!state.players.has(playerId)) {
         const randomName = "Player-" + crypto.randomBytes(2).toString("hex");
@@ -163,6 +186,22 @@ wss.on("connection", (ws, req) => {
       return;
     }
 
+    // player rename
+    if (msg.type === "rename" && playerId) {
+      const p = state.players.get(playerId);
+      if (!p) return;
+      const newName = sanitizeName(msg.name);
+      if (newName !== p.name) {
+        p.name = newName;
+        ws.send(JSON.stringify({ type: "rename_ack", name: newName }));
+        broadcast({ type: "leaderboard", leaderboard: getLeaderboard() });
+      } else {
+        ws.send(JSON.stringify({ type: "rename_ack", name: newName }));
+      }
+      return;
+    }
+
+    // submit word
     if (msg.type === "submit" && state.round && state.round.status === "collecting" && playerId) {
       const word = typeof msg.word === "string" ? msg.word : "";
       if (!word.trim()) return;

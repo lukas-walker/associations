@@ -7,25 +7,37 @@
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-100" style="background-image: url('http://intersections.ch/wp-content/uploads/2024/08/Intersections-bg-scaled.jpg');">
-  <div class="max-w-xl mx-auto p-6">
+  <div class="max-w-3xl mx-auto p-6">
     <h1 class="text-3xl font-bold mb-6">Host Controls</h1>
 
-    <label class="block mb-2 text-neutral-300">Prompt</label>
-    <input id="prompt" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700" placeholder="e.g., 'apple'"/>
-    <div class="mt-4 flex gap-2">
-      <button id="start" class="rounded-xl px-5 py-3 bg-blue-500 text-black font-semibold hover:bg-blue-400">Start Round</button>
-      <button id="close" class="rounded-xl px-5 py-3 bg-rose-500 text-black font-semibold hover:bg-rose-400">Close & Reveal</button>
-      <button id="next"  class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Next Round</button>
-    </div>
+    <div class="grid md:grid-cols-2 gap-6">
+      <!-- Controls -->
+      <div>
+        <label class="block mb-2 text-neutral-300">Prompt</label>
+        <input id="prompt" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700" placeholder="e.g., 'apple'"/>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button id="start" class="rounded-xl px-5 py-3 bg-blue-500 text-black font-semibold hover:bg-blue-400">Start Round</button>
+          <button id="close" class="rounded-xl px-5 py-3 bg-rose-500 text-black font-semibold hover:bg-rose-400">Close & Reveal</button>
+          <button id="next"  class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Next Round</button>
+        </div>
 
-    <div class="mt-6 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
-      <div class="text-neutral-300">Submitted so far</div>
-      <div id="count" class="text-4xl font-bold mt-1">0</div>
+        <div class="mt-6 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+          <div class="text-neutral-300">Submitted so far</div>
+          <div id="count" class="text-4xl font-bold mt-1">0</div>
+        </div>
+      </div>
+
+      <!-- Players / Leaderboard -->
+      <div>
+        <h2 class="text-xl font-bold mb-3">Players</h2>
+        <div id="leaders" class="space-y-2"></div>
+      </div>
     </div>
   </div>
 
   <script>
     const headers = { "Content-Type": "application/json" };
+    const $ = (id) => document.getElementById(id);
 
     $("start").onclick = async () => {
       const prompt = $("prompt").value.trim();
@@ -40,16 +52,49 @@
       await fetch("/api/host/next", { method: "POST", headers, body: JSON.stringify({ prompt }) });
     };
 
+    function showLeaders(list) {
+      const box = $("leaders"); box.innerHTML = "";
+      list.forEach((p, i) => {
+        const div = document.createElement("div");
+        div.className = "flex justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2";
+        div.innerHTML = `<span class="text-neutral-300">${i+1}. ${p.name}</span><span class="font-semibold">${p.score}</span>`;
+        box.appendChild(div);
+      });
+    }
+
+    // WS: identify as host so server won't create a player entry
     const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    ws.addEventListener("open", () => ws.send(JSON.stringify({ type: "hello" })));
-    ws.addEventListener("message", (ev) => {
-      const msg = JSON.parse(ev.data);
-      if (msg.type === "submission_count") $("count").textContent = msg.count;
-      if (msg.type === "round_started") $("count").textContent = msg.round.submissionCount || 0;
-      if (msg.type === "round_revealed") $("count").textContent = "0";
+    ws.addEventListener("open", () => {
+      ws.send(JSON.stringify({ type: "hello", role: "host" }));
     });
 
-    function $(id) { return document.getElementById(id); }
+    ws.addEventListener("message", (ev) => {
+      const msg = JSON.parse(ev.data);
+
+      if (msg.type === "host_hello_ack") {
+        $("count").textContent = msg.submissionCount || 0;
+        if (msg.round?.prompt) $("prompt").value = msg.round.prompt;
+        showLeaders(msg.leaderboard || []);
+      }
+
+      if (msg.type === "submission_count") {
+        $("count").textContent = msg.count;
+      }
+
+      if (msg.type === "leaderboard") {
+        showLeaders(msg.leaderboard || []);
+      }
+
+      if (msg.type === "round_started") {
+        $("count").textContent = msg.round.submissionCount || 0;
+        $("prompt").value = msg.round.prompt || "";
+      }
+
+      if (msg.type === "round_revealed") {
+        $("count").textContent = "0";
+        showLeaders(msg.leaderboard || []);
+      }
+    });
   </script>
 </body>
 </html>
