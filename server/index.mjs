@@ -26,7 +26,8 @@ import {
     resetGame,
     ensurePlayer,
     recordSubmission,
-    renamePlayer
+    renamePlayer,
+    removePlayer          // <— make sure this line exists
 } from "./state.mjs";
 
 import { contentType, handleJson, sendJson } from "./utils.mjs";
@@ -131,8 +132,23 @@ wss.on("connection", (ws) => {
     let playerId = null;
 
     ws.on("close", () => {
-        // If a host tab disconnects, remove it from hostSockets.
-        if (isHost) hostSockets.delete(ws);
+        if (isHost) {
+            hostSockets.delete(ws);
+        } else if (playerId) {
+            // Player tab closed → remove player and notify everyone
+            removePlayer(playerId);
+
+            broadcastHosts({
+                type: "players_overview",
+                gameState: gameState(),
+                players: getPlayersOverview(true)
+            });
+            broadcastAll({
+                type: "leaderboard",
+                leaderboard: getLeaderboard(),
+                gameState: gameState()
+            });
+        }
     });
 
     ws.on("message", (buf) => {
@@ -164,9 +180,8 @@ wss.on("connection", (ws) => {
                 return;
             }
 
-            // Otherwise it's a player (create on first join).
             playerId = msg.playerId || cryptoRandomId();
-            const { player } = ensurePlayer(playerId);
+            const { player } = ensurePlayer(playerId, msg.desiredName); // <— accept nickname from welcome screen
 
             // Did this player already submit in the current round?
             const alreadySubmitted = !!(state.round && state.round.submissions.has(playerId));

@@ -4,56 +4,65 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Association Game</title>
-    <!-- Tailwind via CDN for quick styling -->
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-100">
 <div class="max-w-xl mx-auto p-6">
-
-    <!-- Header with state pill -->
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold">Association Game</h1>
-        <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
+    <!-- Welcome Screen -->
+    <div id="welcome" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-6 shadow">
+        <h1 class="text-3xl font-bold mb-4">Welcome</h1>
+        <p class="text-neutral-300 mb-4">Join the game. You can pick a nickname or leave it blank to get a default name like <em>Player 1</em>.</p>
+        <label class="block text-sm text-neutral-300 mb-2" for="nick">Nickname (optional)</label>
+        <input id="nick" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none mb-4" placeholder="Your nickname… (optional)" maxlength="24" />
+        <button id="join" class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400 w-full">Join Game</button>
     </div>
 
-    <!-- Name editor -->
-    <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow mb-6">
-        <label for="name" class="block text-sm text-neutral-300 mb-2">Your name</label>
-        <input id="name" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
-               placeholder="Your name..." maxlength="24" />
-        <p class="text-xs text-neutral-400 mt-1">Change it anytime. Max 24 characters.</p>
-    </div>
+    <!-- Game Screen (hidden until joined) -->
+    <div id="game" class="hidden">
+        <div class="flex items-center justify-between mb-6 mt-6">
+            <h2 class="text-2xl font-bold">Association Game</h2>
+            <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
+        </div>
 
-    <!-- Prompt -->
-    <div id="promptCard" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow">
-        <h2 class="text-lg text-neutral-300 mb-2">Prompt</h2>
-        <div id="prompt" class="text-2xl font-semibold">— waiting for host —</div>
-    </div>
+        <!-- Name editor -->
+        <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow mb-6">
+            <label for="name" class="block text-sm text-neutral-300 mb-2">Your name</label>
+            <input id="name" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
+                   placeholder="Your name..." maxlength="24" />
+            <p class="text-xs text-neutral-400 mt-1">Change it anytime. Max 24 characters.</p>
+        </div>
 
-    <!-- Submission form -->
-    <form id="form" class="mt-6 flex gap-2">
-        <input id="word" class="flex-1 rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
-               placeholder="Type your word..." autocomplete="off" />
-        <button class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Submit</button>
-    </form>
+        <!-- Prompt -->
+        <div id="promptCard" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow">
+            <h3 class="text-lg text-neutral-300 mb-2">Prompt</h3>
+            <div id="prompt" class="text-2xl font-semibold">— waiting for host —</div>
+        </div>
 
-    <!-- Submission status -->
-    <p id="submitted" class="hidden mt-2 text-emerald-400">Submitted! Waiting for round to close…</p>
+        <!-- Submission form -->
+        <form id="form" class="mt-6 flex gap-2">
+            <input id="word" class="flex-1 rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
+                   placeholder="Type your word..." autocomplete="off" />
+            <button class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Submit</button>
+        </form>
 
-    <!-- Results after reveal -->
-    <div id="results" class="hidden mt-8">
-        <h3 class="text-xl font-bold mb-3">Round Results</h3>
-        <div id="words" class="grid gap-2"></div>
-    </div>
+        <!-- Submission status -->
+        <p id="submitted" class="hidden mt-2 text-emerald-400">Submitted! Waiting for round to close…</p>
 
-    <!-- Leaderboard -->
-    <div id="board" class="mt-8">
-        <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
-        <div id="leaders" class="space-y-2"></div>
+        <!-- Results after reveal -->
+        <div id="results" class="hidden mt-8">
+            <h3 class="text-xl font-bold mb-3">Round Results</h3>
+            <div id="words" class="grid gap-2"></div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="board" class="mt-8">
+            <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
+            <div id="leaders" class="space-y-2"></div>
+        </div>
     </div>
 </div>
 
-<!-- Player-side logic in a separate module for clarity -->
+<!-- Player logic -->
 <script type="module" src="/js/player.js"></script>
 </body>
 </html>
