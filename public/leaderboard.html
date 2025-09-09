@@ -14,22 +14,37 @@
     <!-- <script src="https://cdn.tailwindcss.com"></script> -->
 </head>
 <body class="h-full bg-neutral-950 text-neutral-100">
-<div class="max-w-4xl mx-auto px-4 py-6">
+<div class="max-w-7xl mx-auto px-6 py-6">
 
-    <!-- Top bar: status pill only (same pill classes as the app) -->
-    <div class="flex items-center justify-end mb-6 mt-2">
-      <span id="statePill"
-            class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">
-        State: —
-      </span>
+    <!-- Top bar -->
+    <div class="flex items-center justify-end mb-4">
+    <span id="statePill"
+          class="px-4 py-1.5 rounded-full text-base font-semibold bg-neutral-800 border border-neutral-700 leaderboard-font">
+      State: —
+    </span>
     </div>
 
-    <!-- Leaderboard table gets rendered here -->
-    <div id="leaders"></div>
-</div>
+    <!-- 2-col grid: table (left) + QR (right) -->
+    <div class="grid gap-6"
+         style="grid-template-columns: 1fr clamp(280px, 28vw, 480px);">
 
-<div class="fixed right-6 bottom-6">
-    <img src="/qrcode.svg" alt="Join via QR" class="w-40 h-40 rounded-xl border border-neutral-800 shadow-lg">
+        <!-- LEFT: leaderboard area -->
+        <div class="lb"> <!-- lb = leaderboard container for font scale hook -->
+            <div id="leaders" class="leaderboard-font"></div>
+        </div>
+
+
+        <!-- RIGHT: QR card -->
+        <div>
+            <div class="rounded-3xl border border-neutral-800 bg-white p-4 shadow-2xl aspect-square flex items-center justify-center">
+                <img src="/qrcode.svg" alt="Join via QR" class="max-w-full max-h-full object-contain">
+            </div>
+            <div class="p-4 items-center justify-center font-bold">
+                <p style="text-align: center; font-size: 1.5em">associatons.intersections.ch</p>
+            </div>
+        </div>
+
+    </div>
 </div>
 
 <!-- JS modules (same as other pages) -->

@@ -1,5 +1,9 @@
 import { $, escapeHtml, setStatePill, debounce } from "./common.js";
 
+/* ---------- LocalStorage keys ---------- */
+const LS_ID_KEY   = "ag_player_id";
+const LS_NAME_KEY = "ag_player_name";
+
 /* ---------- DOM: Screens ---------- */
 const elWelcome   = $("welcome");
 const elGame      = $("game");
@@ -13,20 +17,20 @@ const elNameDisplay = $("nameDisplay");
 const elNameEdit    = $("nameEdit");
 
 /* ---------- DOM: Game UI ---------- */
-const elPrompt    = $("prompt");
-const elWord      = $("word");
-const elForm      = $("form");
-const elSubmitted = $("submitted");   // “Submitted!” hint for the local player
-const elRoundInfo = $("roundInfo");   // "Waiting for next round…"
-const elLeaders   = $("leaders");     // leaderboard container (we render a table here)
-const elSubmitBtn = $("submitBtn");   // submit button
-const elPromptCard = $("promptCard"); // promt card
+const elPrompt      = $("prompt");
+const elPromptCard  = $("promptCard");
+const elWord        = $("word");
+const elForm        = $("form");
+const elSubmitted   = $("submitted");   // “Submitted!” hint for the local player
+const elRoundInfo   = $("roundInfo");   // "Waiting for next round…"
+const elLeaders     = $("leaders");     // leaderboard container (we render a table here)
+const elSubmitBtn   = $("submitBtn");
 
 /* ---------- DOM: Inline form error (for submit_reject) ---------- */
 const elFormError = $("formError");
 function showFormError(text) {
     if (!elFormError) return;
-    elFormError.textContent = text || "...";
+    elFormError.textContent = text || "";
     elFormError.classList.toggle("hidden", !text);
 }
 // Clear error when typing again
@@ -37,6 +41,7 @@ let ws = null;
 let joined = false;
 let myId = null;
 
+const WebSocketOPEN = 1;
 const WS_URL = (location.protocol === "https:" ? "wss://" : "ws://") + location.host;
 
 function newSocket() {
@@ -67,27 +72,6 @@ let lastPerPlayerRound = null;       // [{ id, name, submitted, word, pointsGain
 let lastSubmittedIds = new Set();    // live: playerIds who submitted in current round
 
 /* ---------- Small UI helpers ---------- */
-function showWelcome() {
-    elWelcome.classList.remove("hidden");
-    elGame.classList.add("hidden");
-    joined = false;
-    myId = null;
-
-    updateNameUI(""); // clears pill/display/editor
-    elWord.value = "";
-    elWord.disabled = true;
-    elSubmitted.classList.add("hidden");
-    elRoundInfo.classList.add("hidden");
-    elLeaders.innerHTML = "";
-    elPrompt.textContent = "";
-    showFormError("");
-
-    elWord.disabled = true;
-    setSubmitEnabled(false);
-    setPromptActive(false);
-}
-
-// change submit button from green to grey in closed round
 function setSubmitEnabled(enabled) {
     if (!elSubmitBtn) return;
     elSubmitBtn.disabled = !enabled;
@@ -100,16 +84,37 @@ function setSubmitEnabled(enabled) {
     }
 }
 
-// change color of prompt card to green when round active
 function setPromptActive(active) {
     if (!elPromptCard) return;
     if (active) {
-        elPromptCard.classList.remove("bg-neutral-900");
+        elPromptCard.classList.remove("bg-neutral-900", "border-neutral-800");
         elPromptCard.classList.add("bg-emerald-600", "border-emerald-700", "text-white");
     } else {
         elPromptCard.classList.remove("bg-emerald-600", "border-emerald-700", "text-white");
         elPromptCard.classList.add("bg-neutral-900", "border-neutral-800");
     }
+}
+
+function showWelcome() {
+    elWelcome.classList.remove("hidden");
+    elGame.classList.add("hidden");
+    joined = false;
+    myId = null;
+
+    // Prefill nickname from last known name (nice touch)
+    const savedName = localStorage.getItem(LS_NAME_KEY);
+    if (elNick && savedName) elNick.value = savedName;
+
+    updateNameUI(""); // clears pill/display/editor
+    elWord.value = "";
+    elWord.disabled = true;
+    setSubmitEnabled(false);
+    setPromptActive(false);
+    elSubmitted.classList.add("hidden");
+    elRoundInfo.classList.add("hidden");
+    elLeaders.innerHTML = "";
+    elPrompt.textContent = "— waiting for host —";
+    showFormError("");
 }
 
 function showGame() {
@@ -118,7 +123,7 @@ function showGame() {
 }
 
 function setPrompt(text) {
-    elPrompt.textContent = text || "...";
+    elPrompt.textContent = text || "— waiting for host —";
 }
 
 /* ---------- Name pill: view/edit ---------- */
@@ -131,7 +136,6 @@ function updateNameUI(name) {
 }
 
 function enterNameEdit() {
-    // Keep input in normal flow to avoid layout jump
     elNamePill.classList.add("hidden");
     elNameEdit.classList.remove("hidden");
     elNameEdit.focus();
@@ -145,18 +149,15 @@ function exitNameEdit() {
 
 function submitRename(newName) {
     if (!joined) { exitNameEdit(); return; }
-    if (!ws || ws.readyState !== WebSocketOPEN) { // guard if connection dropped
+    if (!ws || ws.readyState !== WebSocketOPEN) {
         try { ws?.close(); } catch {}
         exitNameEdit();
         return;
     }
     ws.send(JSON.stringify({ type: "rename", name: newName }));
-    // We’ll update UI from rename_ack (authoritative)
+    // authoritative update comes from rename_ack
     exitNameEdit();
 }
-
-// Fix WebSocket readyState constant typo-proofing
-const WebSocketOPEN = 1;
 
 elNamePill.addEventListener("click", () => enterNameEdit());
 
@@ -171,7 +172,7 @@ elNameEdit.addEventListener("keydown", (e) => {
 });
 
 elNameEdit.addEventListener("blur", () => {
-    // Save on blur for convenience (same as hitting Enter)
+    // Save on blur for convenience
     submitRename(elNameEdit.value);
 });
 
@@ -270,6 +271,13 @@ function onMessage(ev) {
     if (msg.type === "hello_ack") {
         joined = true;
         myId = msg.playerId;
+
+        // Persist the ID & canonical name locally
+        try {
+            localStorage.setItem(LS_ID_KEY, msg.playerId);
+            if (msg.name) localStorage.setItem(LS_NAME_KEY, msg.name);
+        } catch {}
+
         showGame();
 
         updateNameUI(msg.name || "");
@@ -285,8 +293,8 @@ function onMessage(ev) {
             elWord.disabled = !!msg.alreadySubmitted;
             elSubmitted.classList.toggle("hidden", !msg.alreadySubmitted);
             elRoundInfo.classList.add("hidden");
-            setSubmitEnabled(!msg.alreadySubmitted); // enabled unless this player already submitted
-            setPromptActive(true);                   // prompt card green on active round
+            setSubmitEnabled(!msg.alreadySubmitted);
+            setPromptActive(true);
         } else {
             elWord.disabled = true;
             elSubmitted.classList.add("hidden");
@@ -302,6 +310,7 @@ function onMessage(ev) {
     /* Rename round-trip */
     if (msg.type === "rename_ack" && joined) {
         updateNameUI(msg.name || "");
+        try { if (msg.name) localStorage.setItem(LS_NAME_KEY, msg.name); } catch {}
 
         // If we have a per-round snapshot, refresh our row there too
         if (lastPerPlayerRound) {
@@ -342,11 +351,9 @@ function onMessage(ev) {
         elWord.value = "";
         elWord.disabled = false;
         setPrompt(msg.round.prompt);
-        showFormError("");
-
-        elWord.disabled = false;
-        setSubmitEnabled(true);
         setPromptActive(true);
+        setSubmitEnabled(true);
+        showFormError("");
 
         renderLeaderboardTable({ rows: rowsFromLeaderboardOnly(), gameState: lastGameState });
     }
@@ -355,6 +362,7 @@ function onMessage(ev) {
     if (msg.type === "submit_ack" && joined) {
         elWord.disabled = true;
         elSubmitted.classList.remove("hidden");
+        setSubmitEnabled(false);
         showFormError("");
     }
 
@@ -390,16 +398,14 @@ function onMessage(ev) {
         elWord.disabled = true;
         elSubmitted.classList.add("hidden");
         elRoundInfo.classList.remove("hidden");
-        showFormError("");
-
-        elWord.disabled = true;
         setSubmitEnabled(false);
         setPromptActive(false);
+        showFormError("");
 
         renderLeaderboardTable({ rows: lastPerPlayerRound, gameState: lastGameState });
     }
 
-    /* Game reset → back to welcome */
+    /* Game reset → back to welcome (keep LS so they keep identity across reset) */
     if (msg.type === "game_reset") {
         lastGameState = "idle";
         lastLeaderboard = [];
@@ -412,11 +418,17 @@ function onMessage(ev) {
 /* ---------- Join ---------- */
 elJoin.addEventListener("click", async () => {
     if (joined) return;
-    const desiredName = elNick.value.trim() || undefined;
+
+    // Pull any saved identity to persist across refreshes
+    const savedId   = localStorage.getItem(LS_ID_KEY) || undefined;
+    const savedName = localStorage.getItem(LS_NAME_KEY) || undefined;
+
+    // If the welcome nickname is filled, prefer that as desiredName (allows manual rename)
+    const desiredName = (elNick?.value?.trim()) || savedName || undefined;
 
     try {
         await ensureOpenSocket();
-        ws.send(JSON.stringify({ type: "hello", desiredName }));
+        ws.send(JSON.stringify({ type: "hello", playerId: savedId, desiredName }));
     } catch (err) {
         console.error("Failed to open WebSocket:", err);
         alert("Could not connect. Please try again.");
