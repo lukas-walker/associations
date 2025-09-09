@@ -26,7 +26,7 @@ const elPromptCard = $("promptCard"); // promt card
 const elFormError = $("formError");
 function showFormError(text) {
     if (!elFormError) return;
-    elFormError.textContent = text || "";
+    elFormError.textContent = text || "...";
     elFormError.classList.toggle("hidden", !text);
 }
 // Clear error when typing again
@@ -79,7 +79,7 @@ function showWelcome() {
     elSubmitted.classList.add("hidden");
     elRoundInfo.classList.add("hidden");
     elLeaders.innerHTML = "";
-    elPrompt.textContent = "— waiting for host —";
+    elPrompt.textContent = "";
     showFormError("");
 
     elWord.disabled = true;
@@ -118,7 +118,7 @@ function showGame() {
 }
 
 function setPrompt(text) {
-    elPrompt.textContent = text || "— waiting for host —";
+    elPrompt.textContent = text || "...";
 }
 
 /* ---------- Name pill: view/edit ---------- */

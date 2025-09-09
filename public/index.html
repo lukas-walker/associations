@@ -3,17 +3,17 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Association Game</title>
+    <title>Associations Game</title>
     <script src="https://cdn.tailwindcss.com"></script>
 
     <link rel="stylesheet" href="/style.css" />
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-100">
-<div class="max-w-xl mx-auto p-6">
+<div class="max-w-2xl mx-auto p-6">
     <!-- Welcome Screen -->
     <div id="welcome" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-6 shadow">
-        <h1 class="text-3xl font-bold mb-4">Welcome</h1>
-        <p class="text-neutral-300 mb-4">Join the game. You can pick a nickname or leave it blank to get a default name like <em>Player 1</em>.</p>
+        <h1 class="text-3xl font-bold mb-4">Willkommen!</h1>
+        <p class="text-neutral-300 mb-4">Trete dem Spiel bei. Du kannst einen Spitznamen wählen oder das Feld leer lasen. Dann bekommst du einen Standard-Namen wie <em>Player 1</em>.</p>
         <label class="block text-sm text-neutral-300 mb-2" for="nick">Nickname (optional)</label>
         <input id="nick" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none mb-4" placeholder="Your nickname… (optional)" maxlength="24" />
         <button id="join" class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400 w-full">Join Game</button>
@@ -64,14 +64,14 @@
 
         <p id="formError" class="mt-2 text-red-400 text-sm hidden"></p>
 
-        <p id="roundInfo" class="mt-2 text-neutral-400 hidden">Waiting for next round…</p>
+        <p id="roundInfo" class="mt-2 text-neutral-400 hidden">Warte auf die nächste Runde…</p>
 
         <!-- Submission status -->
-        <p id="submitted" class="hidden mt-2 text-emerald-400">Submitted! Waiting for round to close…</p>
+        <p id="submitted" class="hidden mt-2 text-emerald-400">Gesendet! Warte auf die nächste Runde…</p>
 
         <!-- Results after reveal -->
         <div id="results" class="hidden mt-8">
-            <h3 class="text-xl font-bold mb-3">Round Results</h3>
+            <h3 class="text-xl font-bold mb-3">Resultate der Runde</h3>
             <div id="words" class="grid gap-2"></div>
         </div>
 
@@ -79,40 +79,6 @@
         <div id="board" class="mt-8">
             <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
             <div id="leaders" class="space-y-2"></div>
-        </div>
-
-        <!-- Blocking result modal (no close button). Hidden until reveal. -->
-        <div id="resultModal" class="hidden fixed inset-0 z-50">
-            <!-- Backdrop -->
-            <div class="absolute inset-0 bg-black/70"></div>
-
-            <!-- Modal card -->
-            <div class="relative mx-auto mt-16 max-w-xl w-[92%] rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl p-6">
-                <h3 class="text-2xl font-bold mb-4">Round Results</h3>
-
-                <!-- Your result -->
-                <div id="yourResult" class="rounded-xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
-                    <div class="text-neutral-300 mb-1">Your association</div>
-                    <div class="text-xl font-semibold mb-2" id="yrWord">—</div>
-                    <div class="text-sm text-neutral-300" id="yrStats">—</div>
-                    <div class="mt-2 text-sm"><span class="text-neutral-300">Your total:</span> <span class="font-semibold" id="yrTotal">0</span></div>
-                </div>
-
-                <!-- Other associations -->
-                <div class="mb-6">
-                    <div class="text-neutral-300 mb-2">Other Associations</div>
-                    <div id="otherList" class="grid gap-2"></div>
-                </div>
-
-                <!-- Leaderboard snapshot -->
-                <div>
-                    <div class="text-neutral-300 mb-2">Leaderboard</div>
-                    <div id="lbModal" class="grid gap-2"></div>
-                </div>
-
-                <!-- Footnote -->
-                <p class="mt-6 text-sm text-neutral-400">Waiting for the next round…</p>
-            </div>
         </div>
     </div>
 </div>
