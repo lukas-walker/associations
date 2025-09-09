@@ -6,15 +6,29 @@ const elGame      = $("game");
 const elJoin      = $("join");
 const elNick      = $("nick");
 
+/* ---------- DOM: Top Bar ---------- */
+const elState       = $("statePill");
+const elNamePill    = $("namePill");
+const elNameDisplay = $("nameDisplay");
+const elNameEdit    = $("nameEdit");
+
 /* ---------- DOM: Game UI ---------- */
-const elState     = $("statePill");
-const elName      = $("name");
 const elPrompt    = $("prompt");
 const elWord      = $("word");
 const elForm      = $("form");
-const elSubmitted = $("submitted");   // small “Submitted!” hint for the local player
-const elRoundInfo = $("roundInfo");   // "Waiting for next round..."
+const elSubmitted = $("submitted");   // “Submitted!” hint for the local player
+const elRoundInfo = $("roundInfo");   // "Waiting for next round…"
 const elLeaders   = $("leaders");     // leaderboard container (we render a table here)
+
+/* ---------- DOM: Inline form error (for submit_reject) ---------- */
+const elFormError = $("formError");
+function showFormError(text) {
+    if (!elFormError) return;
+    elFormError.textContent = text || "";
+    elFormError.classList.toggle("hidden", !text);
+}
+// Clear error when typing again
+elWord.addEventListener("input", () => showFormError(""));
 
 /* ---------- WebSocket lifecycle (lazy connect) ---------- */
 let ws = null;
@@ -47,8 +61,8 @@ function ensureOpenSocket() {
 /* ---------- Client-side state for rendering ---------- */
 let lastGameState = "idle";          // "idle" | "collecting" | "revealed"
 let lastLeaderboard = [];            // [{ id, name, score }]
-let lastPerPlayerRound = null;       // [{ id, name, submitted, word, pointsGained, totalScore }] (after reveal)
-let lastSubmittedIds = new Set();    // live: playerIds who have submitted in the current round
+let lastPerPlayerRound = null;       // [{ id, name, submitted, word, pointsGained, totalScore }]
+let lastSubmittedIds = new Set();    // live: playerIds who submitted in current round
 
 /* ---------- Small UI helpers ---------- */
 function showWelcome() {
@@ -57,13 +71,14 @@ function showWelcome() {
     joined = false;
     myId = null;
 
-    elName.value = "";
+    updateNameUI(""); // clears pill/display/editor
     elWord.value = "";
     elWord.disabled = true;
     elSubmitted.classList.add("hidden");
     elRoundInfo.classList.add("hidden");
     elLeaders.innerHTML = "";
     elPrompt.textContent = "— waiting for host —";
+    showFormError("");
 }
 
 function showGame() {
@@ -74,6 +89,60 @@ function showGame() {
 function setPrompt(text) {
     elPrompt.textContent = text || "— waiting for host —";
 }
+
+/* ---------- Name pill: view/edit ---------- */
+function updateNameUI(name) {
+    const n = name || "—";
+    elNameDisplay.textContent = n;
+    if (document.activeElement !== elNameEdit) {
+        elNameEdit.value = n;
+    }
+}
+
+function enterNameEdit() {
+    // Keep input in normal flow to avoid layout jump
+    elNamePill.classList.add("hidden");
+    elNameEdit.classList.remove("hidden");
+    elNameEdit.focus();
+    elNameEdit.select();
+}
+
+function exitNameEdit() {
+    elNameEdit.classList.add("hidden");
+    elNamePill.classList.remove("hidden");
+}
+
+function submitRename(newName) {
+    if (!joined) { exitNameEdit(); return; }
+    if (!ws || ws.readyState !== WebSocketOPEN) { // guard if connection dropped
+        try { ws?.close(); } catch {}
+        exitNameEdit();
+        return;
+    }
+    ws.send(JSON.stringify({ type: "rename", name: newName }));
+    // We’ll update UI from rename_ack (authoritative)
+    exitNameEdit();
+}
+
+// Fix WebSocket readyState constant typo-proofing
+const WebSocketOPEN = 1;
+
+elNamePill.addEventListener("click", () => enterNameEdit());
+
+elNameEdit.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+        e.preventDefault();
+        submitRename(elNameEdit.value);
+    } else if (e.key === "Escape") {
+        e.preventDefault();
+        exitNameEdit();
+    }
+});
+
+elNameEdit.addEventListener("blur", () => {
+    // Save on blur for convenience (same as hitting Enter)
+    submitRename(elNameEdit.value);
+});
 
 /* Convert leaderboard-only into rows compatible with the table renderer */
 function rowsFromLeaderboardOnly() {
@@ -88,14 +157,6 @@ function rowsFromLeaderboardOnly() {
 }
 
 /* ---------- Leaderboard Table Renderer ---------- */
-/**
- * Renders a table with columns:
- * Name | ✓ | Word | +Pts | Total
- * - Your row is pinned at the top and labeled "(you)".
- * - Other rows sorted by Total desc.
- * - During collecting: ✓ comes from live `lastSubmittedIds`; Word/+Pts are blank/0.
- * - After reveal: uses `lastPerPlayerRound` to show Word/+Pts and ✓ based on submitted.
- */
 function renderLeaderboardTable({ rows, gameState }) {
     lastGameState = gameState || lastGameState;
 
@@ -138,9 +199,6 @@ function renderLeaderboardTable({ rows, gameState }) {
         const youBadge = p.id === myId ? ' <span class="text-neutral-400">(you)</span>' : "";
 
         // ✓ source:
-        // - revealed: from row.submitted
-        // - collecting: from live lastSubmittedIds
-        // - idle: nothing
         let submittedFlag = false;
         if (lastGameState === "revealed") {
             submittedFlag = haveRoundCols ? !!p.submitted : false;
@@ -183,7 +241,7 @@ function onMessage(ev) {
         myId = msg.playerId;
         showGame();
 
-        elName.value = msg.name || "";
+        updateNameUI(msg.name || "");
         setPrompt(msg.round?.prompt);
 
         // Cache incoming snapshots
@@ -208,30 +266,35 @@ function onMessage(ev) {
 
     /* Rename round-trip */
     if (msg.type === "rename_ack" && joined) {
-        elName.value = msg.name;
+        updateNameUI(msg.name || "");
+
+        // If we have a per-round snapshot, refresh our row there too
+        if (lastPerPlayerRound) {
+            lastPerPlayerRound = lastPerPlayerRound.map(r => r.id === myId ? { ...r, name: msg.name || r.name } : r);
+            renderLeaderboardTable({ rows: lastPerPlayerRound, gameState: lastGameState });
+        } else {
+            const rows = rowsFromLeaderboardOnly();
+            renderLeaderboardTable({ rows, gameState: lastGameState });
+        }
     }
 
-    /* Live leaderboard refresh (e.g., when a new player joins) */
+    /* Live leaderboard refresh (e.g., new player joins, someone renames) */
     if (msg.type === "leaderboard" && joined) {
         lastLeaderboard = msg.leaderboard || [];
         if (msg.gameState) lastGameState = msg.gameState;
 
-        // If we have a per-round snapshot (e.g., after a reveal),
-        // refresh names & totals from the latest leaderboard.
+        // If we have a per-round snapshot, refresh names & totals from latest leaderboard
         if (lastPerPlayerRound) {
-            const byId = new Map(lastLeaderboard.map(p => [p.id, p])); // { id -> {id,name,score} }
+            const byId = new Map(lastLeaderboard.map(p => [p.id, p]));
             lastPerPlayerRound = lastPerPlayerRound.map(r => {
                 const lb = byId.get(r.id);
-                return lb
-                    ? { ...r, name: lb.name, totalScore: lb.score ?? r.totalScore }
-                    : r;
+                return lb ? { ...r, name: lb.name, totalScore: lb.score ?? r.totalScore } : r;
             });
         }
 
         const rows = lastPerPlayerRound ?? rowsFromLeaderboardOnly();
         renderLeaderboardTable({ rows, gameState: lastGameState });
     }
-
 
     /* Round starts */
     if (msg.type === "round_started" && joined) {
@@ -244,6 +307,7 @@ function onMessage(ev) {
         elWord.value = "";
         elWord.disabled = false;
         setPrompt(msg.round.prompt);
+        showFormError("");
 
         renderLeaderboardTable({ rows: rowsFromLeaderboardOnly(), gameState: lastGameState });
     }
@@ -252,6 +316,13 @@ function onMessage(ev) {
     if (msg.type === "submit_ack" && joined) {
         elWord.disabled = true;
         elSubmitted.classList.remove("hidden");
+        showFormError("");
+    }
+
+    /* Submission rejected (server-side validation) */
+    if (msg.type === "submit_reject" && joined) {
+        // Keep input enabled so they can fix it
+        showFormError(msg.reason || "Eingabe nicht erlaubt.");
     }
 
     /* Live who-has-submitted updates (✓ during collecting) */
@@ -280,6 +351,7 @@ function onMessage(ev) {
         elWord.disabled = true;
         elSubmitted.classList.add("hidden");
         elRoundInfo.classList.remove("hidden");
+        showFormError("");
 
         renderLeaderboardTable({ rows: lastPerPlayerRound, gameState: lastGameState });
     }
@@ -308,19 +380,11 @@ elJoin.addEventListener("click", async () => {
     }
 });
 
-/* ---------- Name change (debounced) ---------- */
-const sendRename = debounce(() => {
-    if (!joined) return;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({ type: "rename", name: elName.value }));
-}, 300);
-elName?.addEventListener("input", sendRename);
-
 /* ---------- Submit word ---------- */
 elForm.addEventListener("submit", (e) => {
     e.preventDefault();
     if (!joined) return;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!ws || ws.readyState !== WebSocketOPEN) return;
     if (elWord.disabled) return;
 
     const word = elWord.value;

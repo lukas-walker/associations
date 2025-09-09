@@ -147,3 +147,6 @@ export function sanitizeName(name) {
 export function removePlayer(playerId) {
     state.players.delete(playerId);
 }
+
+
+

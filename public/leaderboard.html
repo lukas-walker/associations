@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Leaderboard</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link rel="stylesheet" href="/style.css" />
+
+    <!-- If your other pages use Tailwind via CDN instead of /styles.css, comment the line above
+         and uncomment the next one so this page matches them. -->
+    <!-- <script src="https://cdn.tailwindcss.com"></script> -->
+</head>
+<body class="h-full bg-neutral-950 text-neutral-100">
+<div class="max-w-4xl mx-auto px-4 py-6">
+
+    <!-- Top bar: status pill only (same pill classes as the app) -->
+    <div class="flex items-center justify-end mb-6 mt-2">
+      <span id="statePill"
+            class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">
+        State: —
+      </span>
+    </div>
+
+    <!-- Leaderboard table gets rendered here -->
+    <div id="leaders"></div>
+</div>
+
+<!-- JS modules (same as other pages) -->
+<script type="module" src="/js/common.js"></script>
+<script type="module" src="/js/leaderboard.js"></script>
+</body>
+</html>

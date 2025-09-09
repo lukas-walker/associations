@@ -126,8 +126,9 @@ const server = http.createServer((req, res) => {
     // Static files
     const urlPath =
         req.url === "/host" ? "/host.html" :
-            req.url === "/"     ? "/index.html" :
-                req.url;
+            req.url === "/leaderboard" ? "/leaderboard.html" :
+                req.url === "/"     ? "/index.html" :
+                    req.url;
     const filePath = path.join(process.cwd(), "public", decodeURIComponent(urlPath));
     fs.readFile(filePath, (err, data) => {
         if (err) {
@@ -188,6 +189,25 @@ wss.on("connection", (ws) => {
 
         /* ----- Initial handshake from client ----- */
         if (msg.type === "hello") {
+            if (msg.role === "viewer") {
+                const gs = gameState();
+                const submittedIds = (state.round && gs === "collecting")
+                    ? Array.from(state.round.submissions.keys())
+                    : [];
+
+                ws.__isHost = false;
+                ws.__playerId = null;
+
+                ws.send(JSON.stringify({
+                    type: "viewer_hello_ack",
+                    gameState: gs,
+                    round: publicRound(),
+                    leaderboard: getLeaderboard(),
+                    submittedIds
+                }));
+                return;
+            }
+
             // Host identifies itself with role: 'host'
             if (msg.role === "host") {
                 isHost = true;
@@ -268,7 +288,14 @@ wss.on("connection", (ws) => {
         /* ----- Player submitted a word ----- */
         if (msg.type === "submit" && playerId && state.round && state.round.status === "collecting") {
             const raw = typeof msg.word === "string" ? msg.word : "";
-            if (!raw.trim()) return;
+            const reason = validateAssociation(state.round?.prompt || "", raw);
+            if (reason) {
+                // Tell the player why we rejected it; do not record.
+                ws.send(JSON.stringify({ type: "submit_reject", reason, gameState: gameState() }));
+                return;
+            }
+
+
             recordSubmission(playerId, raw);
 
             const gs = gameState();
@@ -306,3 +333,58 @@ function cryptoRandomId() {
 server.listen(PORT, () => {
     console.log("Server listening on " + PORT);
 });
+
+
+
+/* ---------- Validation of Association ---------- */
+
+function norm(s) {
+    return (s || "")
+        .toLowerCase()
+        .normalize("NFKD")
+        .replace(/\p{Diacritic}/gu, "")
+        .trim();
+}
+
+/**
+ * Returns null if allowed; otherwise a human-readable reason string.
+ * Heuristics:
+ * 1) Block exact prompt match.
+ * 2) If prompt has multiple tokens (space/underscore/hyphen), block candidates
+ *    that equal any token (after normalization).
+ * 3) If prompt is a single word, block candidates that are a prefix/suffix
+ *    of the prompt with length >= 4 (captures Dach, Ziegel; allows Ziege, App).
+ */
+function validateAssociation(promptRaw, candidateRaw) {
+    const prompt = norm(promptRaw);
+    const cand = norm(candidateRaw);
+
+    if (!cand) return "Bitte gib ein Wort ein.";
+
+    // 1) exact match
+    if (cand === prompt) {
+        return "Das ist genau das Prompt-Wort.";
+    }
+
+    // split on spaces/underscore/hyphen
+    const parts = prompt.split(/[\s\-_]+/).filter(Boolean);
+
+    if (parts.length > 1) {
+        // 2) multi-token prompt: block if cand matches any token
+        if (parts.some(p => cand === p)) {
+            return "Wähle nicht einfach einen Teil des Prompts.";
+        }
+        return null; // otherwise OK
+    }
+
+    // 3) single-word prompt: prefix/suffix rule (len ≥ 4)
+    // e.g., Dachziegel: block "dach" (prefix) and "ziegel" (suffix)
+    const minLen = 4;
+    if (cand.length >= minLen) {
+        if (prompt.startsWith(cand) || prompt.endsWith(cand)) {
+            return "Zu nah am Prompt (Vorsilbe/Nachsuffix).";
+        }
+    }
+
+    return null; // allowed
+}
