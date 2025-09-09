@@ -1,177 +1,59 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Association Game</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Association Game</title>
+    <!-- Tailwind via CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-100">
-  <div class="max-w-xl mx-auto p-6">
+<div class="max-w-xl mx-auto p-6">
+
+    <!-- Header with state pill -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-3xl font-bold">Association Game</h1>
-      <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
+        <h1 class="text-3xl font-bold">Association Game</h1>
+        <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
     </div>
 
     <!-- Name editor -->
     <div class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow mb-6">
-      <label for="name" class="block text-sm text-neutral-300 mb-2">Your name</label>
-      <input id="name" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
-             placeholder="Your name..." maxlength="24" />
-      <p id="nameHint" class="text-xs text-neutral-400 mt-1">Change it anytime. Max 24 characters.</p>
+        <label for="name" class="block text-sm text-neutral-300 mb-2">Your name</label>
+        <input id="name" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
+               placeholder="Your name..." maxlength="24" />
+        <p class="text-xs text-neutral-400 mt-1">Change it anytime. Max 24 characters.</p>
     </div>
 
+    <!-- Prompt -->
     <div id="promptCard" class="rounded-2xl bg-neutral-900 border border-neutral-800 p-5 shadow">
-      <h2 class="text-lg text-neutral-300 mb-2">Prompt</h2>
-      <div id="prompt" class="text-2xl font-semibold">— waiting for host —</div>
+        <h2 class="text-lg text-neutral-300 mb-2">Prompt</h2>
+        <div id="prompt" class="text-2xl font-semibold">— waiting for host —</div>
     </div>
 
+    <!-- Submission form -->
     <form id="form" class="mt-6 flex gap-2">
-      <input id="word" class="flex-1 rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
-             placeholder="Type your word..." autocomplete="off" />
-      <button class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Submit</button>
+        <input id="word" class="flex-1 rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700 focus:outline-none"
+               placeholder="Type your word..." autocomplete="off" />
+        <button class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Submit</button>
     </form>
 
+    <!-- Submission status -->
     <p id="submitted" class="hidden mt-2 text-emerald-400">Submitted! Waiting for round to close…</p>
 
+    <!-- Results after reveal -->
     <div id="results" class="hidden mt-8">
-      <h3 class="text-xl font-bold mb-3">Round Results</h3>
-      <div id="words" class="grid gap-2"></div>
+        <h3 class="text-xl font-bold mb-3">Round Results</h3>
+        <div id="words" class="grid gap-2"></div>
     </div>
 
+    <!-- Leaderboard -->
     <div id="board" class="mt-8">
-      <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
-      <div id="leaders" class="space-y-2"></div>
+        <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
+        <div id="leaders" class="space-y-2"></div>
     </div>
-  </div>
+</div>
 
-  <script>
-    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    const $ = (id) => document.getElementById(id);
-    const playerId = localStorage.getItem("playerId");
-
-    // debounce
-    function debounce(fn, ms) { let t; return (...a)=>{clearTimeout(t); t=setTimeout(()=>fn(...a), ms);} }
-
-    function setStatePill(state) {
-      const pill = $("statePill");
-      pill.textContent = "State: " + (state === "idle" ? "Idle" : state === "collecting" ? "Active" : "Closed");
-      pill.className = "px-3 py-1 rounded-full text-sm font-semibold border " +
-        (state === "idle" ? "bg-neutral-800 border-neutral-700"
-         : state === "collecting" ? "bg-emerald-600/20 border-emerald-600"
-         : "bg-amber-600/20 border-amber-600");
-    }
-
-    function setPrompt(text) { $("prompt").textContent = text || "— waiting for host —"; }
-
-    function showLeaders(list) {
-      const me = localStorage.getItem("playerId");
-      const box = $("leaders"); box.innerHTML = "";
-      list.forEach((p, i) => {
-        const div = document.createElement("div");
-        const mine = p.id === me ? "border-emerald-600" : "border-neutral-800";
-        div.className = `flex justify-between rounded-xl border ${mine} bg-neutral-900 px-4 py-2`;
-        div.innerHTML = `<span class="text-neutral-300">${i+1}. ${escapeHtml(p.name)}</span><span class="font-semibold">${p.score}</span>`;
-        box.appendChild(div);
-      });
-    }
-
-    function showResults(results) {
-      const box = $("words"); box.innerHTML = "";
-      results.sort((a,b)=>b.freq - a.freq).forEach(r => {
-        const row = document.createElement("div");
-        row.className = "flex justify-between rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-2";
-        row.innerHTML = `<span class="font-mono">${escapeHtml(r.word)}</span>
-                         <span>${r.freq} picked • +${r.pointsPerPlayer} each</span>`;
-        box.appendChild(row);
-      });
-      $("results").classList.remove("hidden");
-    }
-
-    function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m] )); }
-
-    ws.addEventListener("open", () => {
-      ws.send(JSON.stringify({ type: "hello", playerId }));
-    });
-
-    $("form").addEventListener("submit", (e) => {
-      e.preventDefault();
-      if ($("word").disabled) return;
-      const w = $("word").value;
-      if (!w.trim()) return;
-      ws.send(JSON.stringify({ type: "submit", word: w }));
-    });
-
-    // rename handling: send on input (debounced)
-    const sendRename = debounce(() => {
-      const name = $("name").value;
-      ws.send(JSON.stringify({ type: "rename", name }));
-    }, 300);
-    $("name").addEventListener("input", sendRename);
-
-    ws.addEventListener("message", (ev) => {
-      const msg = JSON.parse(ev.data);
-
-      if (msg.gameState) setStatePill(msg.gameState);
-
-      if (msg.type === "hello_ack") {
-        if (!localStorage.getItem("playerId")) localStorage.setItem("playerId", msg.playerId);
-        $("name").value = msg.name || "";
-        setPrompt(msg.round?.prompt);
-        showLeaders(msg.leaderboard || []);
-
-        // reflect submission status on join
-        if (msg.gameState === "collecting") {
-          $("word").disabled = !!msg.alreadySubmitted;
-          $("submitted").classList.toggle("hidden", !msg.alreadySubmitted);
-        } else {
-          $("word").disabled = true;
-          $("submitted").classList.add("hidden");
-        }
-        if (msg.gameState !== "revealed") $("results").classList.add("hidden");
-      }
-
-      if (msg.type === "rename_ack") {
-        $("name").value = msg.name;
-      }
-
-      if (msg.type === "leaderboard") {
-        showLeaders(msg.leaderboard || []);
-      }
-
-      if (msg.type === "round_started") {
-        $("results").classList.add("hidden");
-        $("submitted").classList.add("hidden");
-        $("word").value = "";
-        $("word").disabled = false;
-        setPrompt(msg.round.prompt);
-      }
-
-      if (msg.type === "submission_count") {
-        // nothing to do here for players; UI already shows 'submitted' after ack
-      }
-
-      if (msg.type === "submit_ack") {
-        $("word").disabled = true;
-        $("submitted").classList.remove("hidden");
-      }
-
-      if (msg.type === "round_revealed") {
-        $("word").disabled = true;
-        $("submitted").classList.add("hidden");
-        showResults(msg.results);
-        showLeaders(msg.leaderboard);
-      }
-
-      if (msg.type === "game_reset") {
-        setPrompt(null);
-        $("word").value = "";
-        $("word").disabled = true;
-        $("submitted").classList.add("hidden");
-        $("results").classList.add("hidden");
-        showLeaders(msg.leaderboard || []);
-      }
-    });
-  </script>
+<!-- Player-side logic in a separate module for clarity -->
+<script type="module" src="/js/player.js"></script>
 </body>
 </html>

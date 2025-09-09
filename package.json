@@ -1,7 +1,11 @@
 {
   "name": "assoc-game",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "scripts": { "start": "node server.mjs" },
-  "dependencies": { "ws": "^8.18.0" }
+  "scripts": {
+    "start": "node server/index.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
 }

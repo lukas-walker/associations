@@ -1,169 +1,62 @@
 <!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Host · Association Game</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Host · Association Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="min-h-screen bg-neutral-950 text-neutral-100">
-  <div class="max-w-6xl mx-auto p-6">
+<div class="max-w-6xl mx-auto p-6">
+
+    <!-- Header with state pill -->
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-3xl font-bold">Host Controls</h1>
-      <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
+        <h1 class="text-3xl font-bold">Host Controls</h1>
+        <span id="statePill" class="px-3 py-1 rounded-full text-sm font-semibold bg-neutral-800 border border-neutral-700">State: —</span>
     </div>
 
     <div class="grid lg:grid-cols-3 gap-6">
-      <!-- Controls -->
-      <div class="lg:col-span-1">
-        <label class="block mb-2 text-neutral-300">Prompt</label>
-        <input id="prompt" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700" placeholder="e.g., 'Apfel'"/>
-        <div class="mt-3 flex flex-wrap gap-2">
-          <button id="random" class="rounded-xl px-4 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300">🎲 German noun</button>
-          <button id="start" class="rounded-xl px-4 py-2 bg-blue-500 text-black font-semibold hover:bg-blue-400">Start Round</button>
-          <button id="close" class="rounded-xl px-4 py-2 bg-rose-500 text-black font-semibold hover:bg-rose-400">Close & Reveal</button>
-          <button id="next"  class="rounded-xl px-4 py-2 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Next Round</button>
+        <!-- Controls -->
+        <div class="lg:col-span-1">
+            <label class="block mb-2 text-neutral-300">Prompt</label>
+            <input id="prompt" class="w-full rounded-xl px-4 py-3 bg-neutral-800 border border-neutral-700" placeholder="e.g., 'Apfel'"/>
+            <div class="mt-3 flex flex-wrap gap-2">
+                    <button id="random" class="rounded-xl px-4 py-2 bg-amber-400 text-black font-semibold hover:bg-amber-300">🎲 German noun</button>
+                    <button id="primary" class="rounded-xl px-4 py-2 bg-blue-500 text-black font-semibold hover:bg-blue-400">Start Round</button>
+            </div>
+
+            <div class="mt-6 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
+                <div class="text-neutral-300">Submitted so far</div>
+                <div id="count" class="text-4xl font-bold mt-1">0</div>
+            </div>
+
+            <div class="mt-6">
+                <button id="reset" class="rounded-xl px-4 py-2 bg-neutral-700 text-white font-semibold hover:bg-neutral-600 border border-neutral-600">♻️ Reset Game</button>
+            </div>
         </div>
 
-        <div class="mt-6 rounded-2xl bg-neutral-900 border border-neutral-800 p-4">
-          <div class="text-neutral-300">Submitted so far</div>
-          <div id="count" class="text-4xl font-bold mt-1">0</div>
+        <!-- Players / Leaderboard with per-player word visibility (host only) -->
+        <div class="lg:col-span-2">
+            <h2 class="text-xl font-bold mb-3">Players</h2>
+            <div class="overflow-x-auto rounded-2xl border border-neutral-800">
+                <table class="w-full text-sm bg-neutral-900">
+                    <thead class="bg-neutral-800 text-neutral-300">
+                    <tr>
+                        <th class="text-left px-4 py-2">#</th>
+                        <th class="text-left px-4 py-2">Name</th>
+                        <th class="text-left px-4 py-2">Submitted</th>
+                        <th class="text-left px-4 py-2">Word</th>
+                        <th class="text-right px-4 py-2">Score</th>
+                    </tr>
+                    </thead>
+                    <tbody id="playersTbody" class="divide-y divide-neutral-800"></tbody>
+                </table>
+            </div>
         </div>
-
-        <div class="mt-6">
-          <button id="reset" class="rounded-xl px-4 py-2 bg-neutral-700 text-white font-semibold hover:bg-neutral-600 border border-neutral-600">♻️ Reset Game</button>
-        </div>
-      </div>
-
-      <!-- Players / Leaderboard -->
-      <div class="lg:col-span-2">
-        <h2 class="text-xl font-bold mb-3">Players</h2>
-        <div class="overflow-x-auto rounded-2xl border border-neutral-800">
-          <table class="w-full text-sm bg-neutral-900">
-            <thead class="bg-neutral-800 text-neutral-300">
-              <tr>
-                <th class="text-left px-4 py-2">#</th>
-                <th class="text-left px-4 py-2">Name</th>
-                <th class="text-left px-4 py-2">Submitted</th>
-                <th class="text-left px-4 py-2">Word</th>
-                <th class="text-right px-4 py-2">Score</th>
-              </tr>
-            </thead>
-            <tbody id="playersTbody" class="divide-y divide-neutral-800"></tbody>
-          </table>
-        </div>
-      </div>
     </div>
-  </div>
+</div>
 
-  <script>
-    const headers = { "Content-Type": "application/json" };
-    const $ = (id) => document.getElementById(id);
-
-    // Simple list of common German nouns (capitalized).
-    const germanNouns = [
-      "Apfel","Haus","Auto","Hund","Katze","Baum","Stadt","Fluss","Berg","Buch","Tisch","Stuhl","Fenster","Tür","Garten",
-      "Wolke","Sonne","Mond","Stern","Wasser","Feuer","Erde","Luft","Zug","Straße","Brücke","Schule","Computer","Telefon","Lampe",
-      "Blume","Zahl","Zeit","Wort","Spiel","Musik","Film","Reise","Kaffee","Tee","Brot","Käse","Fisch","Vogel","Schnee","Regen","Wind"
-    ];
-    function randomGermanNoun() {
-      return germanNouns[Math.floor(Math.random() * germanNouns.length)];
-    }
-
-    $("random").onclick = () => { $("prompt").value = randomGermanNoun(); };
-
-    $("start").onclick = async () => {
-      const prompt = $("prompt").value.trim();
-      if (!prompt) { alert("Enter a prompt"); return; }
-      await fetch("/api/host/start", { method: "POST", headers, body: JSON.stringify({ prompt }) });
-    };
-    $("close").onclick = async () => {
-      await fetch("/api/host/close", { method: "POST", headers });
-    };
-    $("next").onclick = async () => {
-      const prompt = $("prompt").value.trim();
-      await fetch("/api/host/next", { method: "POST", headers, body: JSON.stringify({ prompt }) });
-    };
-    $("reset").onclick = async () => {
-      if (!confirm("Reset game? This clears scores and the current round.")) return;
-      await fetch("/api/host/reset", { method: "POST", headers });
-      $("prompt").value = "";
-      $("count").textContent = "0";
-    };
-
-    function setStatePill(state) {
-      const pill = $("statePill");
-      pill.textContent = "State: " + (state === "idle" ? "Idle" : state === "collecting" ? "Active" : "Closed");
-      pill.className = "px-3 py-1 rounded-full text-sm font-semibold border " +
-        (state === "idle" ? "bg-neutral-800 border-neutral-700"
-         : state === "collecting" ? "bg-emerald-600/20 border-emerald-600"
-         : "bg-amber-600/20 border-amber-600");
-    }
-
-    function renderPlayersOverview(list) {
-      const tbody = $("playersTbody");
-      tbody.innerHTML = "";
-      list.forEach((p, i) => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td class="px-4 py-2 text-neutral-400">${i+1}</td>
-          <td class="px-4 py-2">${escapeHtml(p.name)}</td>
-          <td class="px-4 py-2">${p.submitted ? "✅" : "—"}</td>
-          <td class="px-4 py-2 max-w-[280px] truncate" title="${p.word ? escapeAttr(p.word) : ""}">${p.word ? escapeHtml(p.word) : ""}</td>
-          <td class="px-4 py-2 text-right font-semibold">${p.score}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function escapeHtml(s){ return (s??"").toString().replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[m] )); }
-    function escapeAttr(s){ return escapeHtml(s); }
-
-    // WS: identify as host so server won't create a player entry
-    const ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host);
-    ws.addEventListener("open", () => {
-      ws.send(JSON.stringify({ type: "hello", role: "host" }));
-    });
-
-    ws.addEventListener("message", (ev) => {
-      const msg = JSON.parse(ev.data);
-
-      if (msg.gameState) setStatePill(msg.gameState);
-
-      if (msg.type === "host_hello_ack") {
-        $("count").textContent = msg.submissionCount || 0;
-        if (msg.round?.prompt) $("prompt").value = msg.round.prompt;
-      }
-
-      if (msg.type === "round_started") {
-        $("count").textContent = msg.round.submissionCount || 0;
-        $("prompt").value = msg.round.prompt || "";
-      }
-
-      if (msg.type === "submission_count") {
-        $("count").textContent = msg.count;
-      }
-
-      if (msg.type === "players_overview") {
-        renderPlayersOverview(msg.players || []);
-      }
-
-      if (msg.type === "leaderboard") {
-        // leaderboard also changes after rename/reveal; re-render overview if we have it
-        // (server also sends players_overview, but in case of ordering changes)
-      }
-
-      if (msg.type === "round_revealed") {
-        $("count").textContent = "0";
-        // players_overview will arrive separately
-      }
-
-      if (msg.type === "game_reset") {
-        $("count").textContent = "0";
-        $("prompt").value = "";
-        renderPlayersOverview([]);
-      }
-    });
-  </script>
+<!-- Host-side logic (controls + overview) -->
+<script type="module" src="/js/host.js"></script>
 </body>
 </html>
