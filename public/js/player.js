@@ -19,6 +19,8 @@ const elForm      = $("form");
 const elSubmitted = $("submitted");   // “Submitted!” hint for the local player
 const elRoundInfo = $("roundInfo");   // "Waiting for next round…"
 const elLeaders   = $("leaders");     // leaderboard container (we render a table here)
+const elSubmitBtn = $("submitBtn");   // submit button
+const elPromptCard = $("promptCard"); // promt card
 
 /* ---------- DOM: Inline form error (for submit_reject) ---------- */
 const elFormError = $("formError");
@@ -79,6 +81,35 @@ function showWelcome() {
     elLeaders.innerHTML = "";
     elPrompt.textContent = "— waiting for host —";
     showFormError("");
+
+    elWord.disabled = true;
+    setSubmitEnabled(false);
+    setPromptActive(false);
+}
+
+// change submit button from green to grey in closed round
+function setSubmitEnabled(enabled) {
+    if (!elSubmitBtn) return;
+    elSubmitBtn.disabled = !enabled;
+    if (enabled) {
+        elSubmitBtn.classList.remove("bg-neutral-600", "text-neutral-400", "cursor-not-allowed");
+        elSubmitBtn.classList.add("bg-emerald-600", "hover:bg-emerald-700", "text-white");
+    } else {
+        elSubmitBtn.classList.remove("bg-emerald-600", "hover:bg-emerald-700", "text-white");
+        elSubmitBtn.classList.add("bg-neutral-600", "text-neutral-400", "cursor-not-allowed");
+    }
+}
+
+// change color of prompt card to green when round active
+function setPromptActive(active) {
+    if (!elPromptCard) return;
+    if (active) {
+        elPromptCard.classList.remove("bg-neutral-900");
+        elPromptCard.classList.add("bg-emerald-600", "border-emerald-700", "text-white");
+    } else {
+        elPromptCard.classList.remove("bg-emerald-600", "border-emerald-700", "text-white");
+        elPromptCard.classList.add("bg-neutral-900", "border-neutral-800");
+    }
 }
 
 function showGame() {
@@ -254,10 +285,14 @@ function onMessage(ev) {
             elWord.disabled = !!msg.alreadySubmitted;
             elSubmitted.classList.toggle("hidden", !msg.alreadySubmitted);
             elRoundInfo.classList.add("hidden");
+            setSubmitEnabled(!msg.alreadySubmitted); // enabled unless this player already submitted
+            setPromptActive(true);                   // prompt card green on active round
         } else {
             elWord.disabled = true;
             elSubmitted.classList.add("hidden");
             elRoundInfo.classList.remove("hidden"); // show “Waiting for next round…”
+            setSubmitEnabled(false);
+            setPromptActive(false);
         }
 
         // Render table (leaderboard-only rows at this point)
@@ -309,6 +344,10 @@ function onMessage(ev) {
         setPrompt(msg.round.prompt);
         showFormError("");
 
+        elWord.disabled = false;
+        setSubmitEnabled(true);
+        setPromptActive(true);
+
         renderLeaderboardTable({ rows: rowsFromLeaderboardOnly(), gameState: lastGameState });
     }
 
@@ -352,6 +391,10 @@ function onMessage(ev) {
         elSubmitted.classList.add("hidden");
         elRoundInfo.classList.remove("hidden");
         showFormError("");
+
+        elWord.disabled = true;
+        setSubmitEnabled(false);
+        setPromptActive(false);
 
         renderLeaderboardTable({ rows: lastPerPlayerRound, gameState: lastGameState });
     }
