@@ -45,6 +45,8 @@
             <button class="rounded-xl px-5 py-3 bg-emerald-500 text-black font-semibold hover:bg-emerald-400">Submit</button>
         </form>
 
+        <p id="roundInfo" class="mt-2 text-neutral-400 hidden">Waiting for next round…</p>
+
         <!-- Submission status -->
         <p id="submitted" class="hidden mt-2 text-emerald-400">Submitted! Waiting for round to close…</p>
 
@@ -58,6 +60,40 @@
         <div id="board" class="mt-8">
             <h3 class="text-xl font-bold mb-3">Leaderboard</h3>
             <div id="leaders" class="space-y-2"></div>
+        </div>
+
+        <!-- Blocking result modal (no close button). Hidden until reveal. -->
+        <div id="resultModal" class="hidden fixed inset-0 z-50">
+            <!-- Backdrop -->
+            <div class="absolute inset-0 bg-black/70"></div>
+
+            <!-- Modal card -->
+            <div class="relative mx-auto mt-16 max-w-xl w-[92%] rounded-2xl border border-neutral-800 bg-neutral-950 shadow-xl p-6">
+                <h3 class="text-2xl font-bold mb-4">Round Results</h3>
+
+                <!-- Your result -->
+                <div id="yourResult" class="rounded-xl bg-neutral-900 border border-neutral-800 p-4 mb-6">
+                    <div class="text-neutral-300 mb-1">Your association</div>
+                    <div class="text-xl font-semibold mb-2" id="yrWord">—</div>
+                    <div class="text-sm text-neutral-300" id="yrStats">—</div>
+                    <div class="mt-2 text-sm"><span class="text-neutral-300">Your total:</span> <span class="font-semibold" id="yrTotal">0</span></div>
+                </div>
+
+                <!-- Other associations -->
+                <div class="mb-6">
+                    <div class="text-neutral-300 mb-2">Other Associations</div>
+                    <div id="otherList" class="grid gap-2"></div>
+                </div>
+
+                <!-- Leaderboard snapshot -->
+                <div>
+                    <div class="text-neutral-300 mb-2">Leaderboard</div>
+                    <div id="lbModal" class="grid gap-2"></div>
+                </div>
+
+                <!-- Footnote -->
+                <p class="mt-6 text-sm text-neutral-400">Waiting for the next round…</p>
+            </div>
         </div>
     </div>
 </div>

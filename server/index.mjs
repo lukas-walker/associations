@@ -27,7 +27,8 @@ import {
     ensurePlayer,
     recordSubmission,
     renamePlayer,
-    removePlayer          // <— make sure this line exists
+    removePlayer,
+    normalize
 } from "./state.mjs";
 
 import { contentType, handleJson, sendJson } from "./utils.mjs";
@@ -55,24 +56,54 @@ const server = http.createServer((req, res) => {
                 gameState: gameState(),
                 players: getPlayersOverview(true)
             });
+            // Also clear round progress (no one has submitted yet)
+            broadcastAll({
+                type: "round_progress",
+                submittedIds: [],
+                gameState: gameState()
+            });
+
             return sendJson(res, 200, { ok: true, round: publicRound(), gameState: gameState() });
         });
     }
 
     if (req.method === "POST" && req.url === "/api/host/close") {
-        const { results, leaderboard } = closeRound();
+        const { results, leaderboard, counts, submissions } = closeRound();
+
+        // Build per-player round summary for ALL players
+        const subMap = new Map(submissions); // playerId -> rawWord
+        const perPlayerRound = [];
+        for (const [id, p] of state.players.entries()) {
+            const raw = subMap.get(id) || null;
+            const submitted = raw != null;
+            const pointsGained = submitted ? Math.max((counts[normalize(raw)] || 0) - 1, 0) : 0;
+            perPlayerRound.push({
+                id,
+                name: p.name,
+                submitted,
+                word: submitted ? raw : "",
+                pointsGained,
+                totalScore: p.score
+            });
+        }
+
+        // Public reveal to EVERYONE, containing per-player details
         broadcastAll({
             type: "round_revealed",
             gameState: gameState(),
             round: publicRound(),
             results,
-            leaderboard
+            leaderboard,
+            perPlayerRound
         });
+
+        // Host overview refresh
         broadcastHosts({
             type: "players_overview",
             gameState: gameState(),
             players: getPlayersOverview(true)
         });
+
         return sendJson(res, 200, { ok: true, gameState: gameState() });
     }
 
@@ -162,6 +193,9 @@ wss.on("connection", (ws) => {
                 isHost = true;
                 hostSockets.add(ws);
 
+                // Tag this socket so other parts of the server can detect hosts
+                ws.__isHost = true;
+
                 // Respond with the current snapshot for the host.
                 ws.send(JSON.stringify({
                     type: "host_hello_ack",
@@ -181,12 +215,19 @@ wss.on("connection", (ws) => {
             }
 
             playerId = msg.playerId || cryptoRandomId();
-            const { player } = ensurePlayer(playerId, msg.desiredName); // <— accept nickname from welcome screen
+            const { player } = ensurePlayer(playerId, msg.desiredName);
 
-            // Did this player already submit in the current round?
+            // Tag this socket so other parts of the server can address this player directly
+            ws.__isHost = false;
+            ws.__playerId = playerId;
+
+            const gs = gameState();
             const alreadySubmitted = !!(state.round && state.round.submissions.has(playerId));
+            const submittedIds = (state.round && gs === "collecting")
+                ? Array.from(state.round.submissions.keys())
+                : [];
 
-            // Acknowledge with the player snapshot.
+            // Acknowledge with the player snapshot + who has already submitted this round
             ws.send(JSON.stringify({
                 type: "hello_ack",
                 playerId,
@@ -194,14 +235,20 @@ wss.on("connection", (ws) => {
                 round: publicRound(),
                 leaderboard: getLeaderboard(),
                 alreadySubmitted,
-                gameState: gameState()
+                submittedIds,                   // <— NEW
+                gameState: gs
             }));
 
-            // Sync submission count to everyone (nice for the host counter).
-            broadcastAll({ type: "submission_count", count: state.round?.submissions.size || 0, gameState: gameState() });
+            // Everyone gets a refreshed leaderboard (so new player appears immediately)
+            broadcastAll({
+                type: "leaderboard",
+                leaderboard: getLeaderboard(),
+                gameState: gs
+            });
 
-            // Update hosts with the latest players overview.
-            broadcastHosts({ type: "players_overview", gameState: gameState(), players: getPlayersOverview(true) });
+            // Keep existing broadcasts
+            broadcastAll({ type: "submission_count", count: state.round?.submissions.size || 0, gameState: gs });
+            broadcastHosts({ type: "players_overview", gameState: gs, players: getPlayersOverview(true) });
             return;
         }
 
@@ -224,18 +271,29 @@ wss.on("connection", (ws) => {
             if (!raw.trim()) return;
             recordSubmission(playerId, raw);
 
-            // Tell this player their submission was accepted (UI disables input).
-            ws.send(JSON.stringify({ type: "submit_ack", ok: true, gameState: gameState() }));
+            const gs = gameState();
 
-            // Everyone sees the new submission count.
-            broadcastAll({ type: "submission_count", count: state.round.submissions.size, gameState: gameState() });
+            // Acknowledge to this player
+            ws.send(JSON.stringify({ type: "submit_ack", ok: true, gameState: gs }));
 
-            // Hosts see who/what has been submitted.
-            broadcastHosts({ type: "players_overview", gameState: gameState(), players: getPlayersOverview(true) });
+            // Everyone: update count
+            broadcastAll({ type: "submission_count", count: state.round.submissions.size, gameState: gs });
+
+            // Everyone: who has submitted so far (for ✓ column)
+            broadcastAll({
+                type: "round_progress",
+                submittedIds: Array.from(state.round.submissions.keys()),
+                gameState: gs
+            });
+
+            // Hosts: detailed overview
+            broadcastHosts({ type: "players_overview", gameState: gs, players: getPlayersOverview(true) });
             return;
         }
+
     });
 });
+
 
 /* ---------- Utilities ---------- */
 function cryptoRandomId() {

@@ -49,14 +49,20 @@ export function startRound(prompt) {
 }
 
 export function closeRound() {
-    if (!state.round || state.round.status !== "collecting") return { results: [], leaderboard: getLeaderboard() };
+    if (!state.round || state.round.status !== "collecting") {
+        return { results: [], leaderboard: getLeaderboard(), counts: {}, submissions: [] };
+    }
+
     state.round.status = "revealed";
 
+    // Count normalized words
     const counts = {};
     for (const rawWord of state.round.submissions.values()) {
         const key = normalize(rawWord);
         counts[key] = (counts[key] || 0) + 1;
     }
+
+    // Award points
     for (const [playerId, rawWord] of state.round.submissions.entries()) {
         const freq = counts[normalize(rawWord)] || 0;
         const pts = Math.max(freq - 1, 0);
@@ -64,12 +70,24 @@ export function closeRound() {
         if (player) player.score += pts;
     }
 
+    // Aggregated results payload (normalized)
     const results = Object.entries(counts).map(([word, freq]) => ({
-        word, freq, pointsPerPlayer: Math.max(freq - 1, 0)
+        word,
+        freq,
+        pointsPerPlayer: Math.max(freq - 1, 0)
     }));
 
-    return { results, leaderboard: getLeaderboard() };
+    // Snapshot submissions for per-player messages (playerId -> rawWord)
+    const submissions = Array.from(state.round.submissions.entries());
+
+    return {
+        results,
+        leaderboard: getLeaderboard(),
+        counts,
+        submissions
+    };
 }
+
 
 /** Reset to a fresh session: clear round AND players, reset join order. */
 export function resetGame() {
