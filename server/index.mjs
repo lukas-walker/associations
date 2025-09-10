@@ -168,7 +168,7 @@ wss.on("connection", (ws) => {
             hostSockets.delete(ws);
         } else if (playerId) {
             // Player tab closed → remove player and notify everyone
-            removePlayer(playerId);
+            schedulePlayerRemoval(playerId);
 
             broadcastHosts({
                 type: "players_overview",
@@ -235,6 +235,8 @@ wss.on("connection", (ws) => {
             }
 
             playerId = msg.playerId || cryptoRandomId();
+            cancelPlayerRemoval(playerId); // <— add this line
+
             const { player } = ensurePlayer(playerId, msg.desiredName);
 
             // Tag this socket so other parts of the server can address this player directly
@@ -387,4 +389,42 @@ function validateAssociation(promptRaw, candidateRaw) {
     }
 
     return null; // allowed
+}
+
+
+// Player removal grace period to survive refreshes (in ms)
+const PLAYER_REMOVAL_GRACE_MS = 30000; // 30s
+
+// Map<playerId, Timeout>
+const pendingRemoval = new Map();
+
+function schedulePlayerRemoval(playerId) {
+    // clear any existing timer first
+    cancelPlayerRemoval(playerId);
+
+    const t = setTimeout(() => {
+        pendingRemoval.delete(playerId);
+        removePlayer(playerId); // your existing function
+        // after actual removal, update hosts/clients
+        broadcastHosts({
+            type: "players_overview",
+            gameState: gameState(),
+            players: getPlayersOverview(true)
+        });
+        broadcastAll({
+            type: "leaderboard",
+            leaderboard: getLeaderboard(),
+            gameState: gameState()
+        });
+    }, PLAYER_REMOVAL_GRACE_MS);
+
+    pendingRemoval.set(playerId, t);
+}
+
+function cancelPlayerRemoval(playerId) {
+    const t = pendingRemoval.get(playerId);
+    if (t) {
+        clearTimeout(t);
+        pendingRemoval.delete(playerId);
+    }
 }

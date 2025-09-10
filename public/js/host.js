@@ -68,8 +68,13 @@ $("reset").onclick = async () => {
 /* ----- Random German noun list (client-side for zero-latency) ----- */
 const germanNouns = [
     "Apfel","Haus","Auto","Hund","Katze","Baum","Stadt","Fluss","Berg","Buch","Tisch","Stuhl","Fenster","Tür","Garten",
-    "Wolke","Sonne","Mond","Stern","Wasser","Feuer","Erde","Luft","Zug","Straße","Brücke","Schule","Computer","Telefon","Lampe",
-    "Blume","Zahl","Zeit","Wort","Spiel","Musik","Film","Reise","Kaffee","Tee","Brot","Käse","Fisch","Vogel","Schnee","Regen","Wind"
+    "Wolke","Sonne","Mond","Stern","Wasser","Feuer","Erde","Luft","Zug","Strasse","Brücke","Schule","Computer","Telefon","Lampe",
+    "Blume","Zahl","Zeit","Wort","Spiel","Musik","Film","Reise","Kaffee","Tee","Brot","Käse","Fisch","Vogel","Schnee","Regen","Wind","Schublade",
+    "Erbse","Wäscheklammer","Backpapier","Becher","Regen","Restaurant","Schaufel","Schraubenzieher","Tomate","Feuerzeug","Frühstück",
+    "Streichholz","Kinder","Stuhl","Butter","Glühbirne","Holz","Wein","Verlängerungskabel","Haferflocken","Uhr","Fernbedienung",
+    "Backofen","Reis","Thermoskanne","Regen","Wasserkocher","Seilzug","Kleidung","Router","Eimer","Schlüsselbund","Schuh","Apfelmus",
+    "Baum","Schraube","Schreibtisch","Brücke","Ofen","Kalenderblatt","Briefkasten","Bohrer","Hand","Besen","Tasche","Kissen","Deckel",
+    "Laptop","Schokolade","Flughafen","Mixer"
 ];
 function randomGermanNoun() {
     return germanNouns[Math.floor(Math.random() * germanNouns.length)];
