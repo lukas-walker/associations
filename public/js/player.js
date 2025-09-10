@@ -113,7 +113,7 @@ function showWelcome() {
     elSubmitted.classList.add("hidden");
     elRoundInfo.classList.add("hidden");
     elLeaders.innerHTML = "";
-    elPrompt.textContent = "— waiting for host —";
+    elPrompt.textContent = "...";
     showFormError("");
 }
 
@@ -123,7 +123,7 @@ function showGame() {
 }
 
 function setPrompt(text) {
-    elPrompt.textContent = text || "— waiting for host —";
+    elPrompt.textContent = text || "...";
 }
 
 /* ---------- Name pill: view/edit ---------- */
@@ -228,7 +228,7 @@ function renderLeaderboardTable({ rows, gameState }) {
         const tr = document.createElement("tr");
 
         const name = escapeHtml(p.name || "");
-        const youBadge = p.id === myId ? ' <span class="text-neutral-400">(you)</span>' : "";
+        const youBadge = p.id === myId ? ' <span class="text-neutral-400">(du)</span>' : "";
 
         // ✓ source:
         let submittedFlag = false;
